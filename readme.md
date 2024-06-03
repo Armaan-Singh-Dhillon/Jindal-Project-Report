@@ -1,4 +1,11 @@
-# Project Report
+# Project Theme: Optimizing Power Efficiency in Induction Furnaces through Advanced Object Detection Technology
+
+### Name of Mentor: Ahmad Raza
+### Department: SMS 2
+
+### Students: Armaan, Nitin
+
+---
 
 ## 1. Understanding the Project
 
