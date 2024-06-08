@@ -4,7 +4,7 @@
 
 ### Department: SMS 2
 
-### Students: Armaan, Nitin
+### Trainee: Armaan, Nitin
 
 ---
 
