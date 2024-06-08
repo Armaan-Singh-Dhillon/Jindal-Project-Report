@@ -8,6 +8,18 @@
 
 ---
 
+## Context
+
+In a steel manufacturing process, a ladle is used to transfer molten steel from an Electric Arc Furnace (EAF) to an Argon Oxygen Decarburization (AOD) unit for further chemical processing. The continuous operation and synchronization between these units are critical for maintaining efficiency and product quality. However, there can be instances where the ladle may pause during the transfer process, causing potential delays and disruptions.
+
+## Problem Statement
+
+The goal is to develop a system that can:
+
+1. Detect the ladle as it moves between the EAF and AOD units.
+2. Track the ladle's movement to determine if it is moving or paused.
+3. Provide a signal or alert to the operator when the ladle is paused, so appropriate actions can be taken to minimize delays.
+
 ## 1. Understanding the Project
 
 The project involves the application of computer vision techniques to a specific domain. The primary objective is to leverage computer vision technology to solve a problem or improve a process. To gain a thorough understanding of the project's requirements and objectives, a comprehensive project brief was reviewed. This included the project's scope, goals, deliverables, and the expected impact of the project outcomes. The initial phase focused on identifying the specific problem to be addressed, the data required, and the methodologies to be employed in the project.
