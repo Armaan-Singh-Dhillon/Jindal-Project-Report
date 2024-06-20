@@ -188,6 +188,7 @@ if os.name =='nt':
 
 ![alt text](image.png)
 ![alt text](image-1.png)
+![alt text](image-6.png)
 
 ---
 
@@ -264,6 +265,8 @@ This report documents the process of training a custom object detection model us
 - These paths are used throughout the training process for storing data scripts and models
 
 ```python
+# CODE
+
 CUSTOM_MODEL_NAME = 'my_ssd_mobnet'
 PRETRAINED_MODEL_NAME = 'ssd_mobilenet_v2_fpnlite_320x320_coco17_tpu-8'
 PRETRAINED_MODEL_URL = 'http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_mobilenet_v2_fpnlite_320x320_coco17_tpu-8.tar.gz'
@@ -299,7 +302,8 @@ files = {
 - It also installs necessary packages and sets up the Object Detection API for training.
 
 ```python
-# https://www.tensorflow.org/install/source_windows
+# CODE
+
 import re
 !apt-get install wget --yes
 if not os.path.exists(os.path.join(paths['APIMODEL_PATH'], 'research', 'object_detection')):
@@ -365,7 +369,7 @@ if os.name == 'nt':
 - In this section, a label map is created for the custom objects to be detected by the model.
 
 ```python
-
+# CODE
 
 labels = [{'name':'ThumbsUp', 'id':1}, {'name':'ThumbsDown', 'id':2}, {'name':'ThankYou', 'id':3}, {'name':'LiveLong', 'id':4}]
 
@@ -384,7 +388,7 @@ with open(files['LABELMAP'], 'w') as f:
 - This step is crucial for training the model as TensorFlow expects data in TFRecord format.
 
 ```python
-# OPTIONAL IF RUNNING ON COLAB
+# CODE
 ARCHIVE_FILES = os.path.join(paths['IMAGE_PATH'], 'archive.tar.gz')
 if os.path.exists(ARCHIVE_FILES):
   !tar -zxvf {ARCHIVE_FILES}
@@ -405,6 +409,8 @@ if not os.path.exists(files['TF_RECORD_SCRIPT']):
 - This configuration file specifies the architecture and parameters of the model.
 
 ```python
+#CODE
+
 if os.name =='posix':
     !cp {os.path.join(paths['PRETRAINED_MODEL_PATH'], PRETRAINED_MODEL_NAME, 'pipeline.config')} {os.path.join(paths['CHECKPOINT_PATH'])}
 if os.name == 'nt':
@@ -418,6 +424,7 @@ if os.name == 'nt':
 - This includes the number of classes, batch size, fine-tuning checkpoint, etc.
 
 ```python
+#CODE
 import tensorflow as tf
 from object_detection.utils import config_util
 from object_detection.protos import pipeline_pb2
@@ -455,6 +462,7 @@ with tf.io.gfile.GFile(files['PIPELINE_CONFIG'], "wb") as f:
 - This step involves running the training script with appropriate parameters.
 
 ```python
+#CODE
 
 TRAINING_SCRIPT = os.path.join(paths['APIMODEL_PATH'], 'research', 'object_detection', 'model_main_tf2.py')
 
@@ -473,6 +481,8 @@ command = "python {} --model_dir={} --pipeline_config_path={} --num_train_steps=
 - This allows us to perform inference or continue training from the saved checkpoint.
 
 ```python
+#CODE
+
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -516,3 +526,947 @@ plt.show()
 ```
 
 ![alt text](image-4.png)
+
+# Process Flow
+
+##### Ladle Placing at Tapping Position
+
+The ladle is carefully positioned at the designated tapping location to prepare for the reception of molten metal from the furnace. This step ensures that the ladle is properly aligned and secured to facilitate a smooth and efficient tapping process.
+
+##### Heat Tapping from Furnace
+
+Molten metal (heat) is tapped from the furnace into the ladle. This step involves the controlled release of the molten metal from the furnace into the ladle to ensure minimal spillage and adherence to safety protocols.
+
+##### Heat Shifting from Tapping Position to BC Row Trolley
+
+Once the heat tapping is completed, the ladle containing the molten metal is moved from the tapping position to a BC row trolley. This transition involves careful handling to prevent any spillage or accidents.
+
+##### Ladle Trolley Movement from BC to AB Row
+
+The ladle trolley, now loaded with the molten metal, is transported from the BC row to the AB row. This step involves navigating the trolley through the designated pathways to ensure safe and efficient movement.
+
+##### Heat Lifting by Crane for De-slagging
+
+Upon reaching the AB row, the heat is lifted by a crane for the de-slagging process. De-slagging involves the removal of slag (impurities) from the surface of the molten metal to ensure the quality and purity of the final product.
+
+##### Heat Placing at Weighing Bridge Trolley
+
+After de-slagging, the heat is placed on a weighing bridge trolley. This step is crucial for measuring the exact weight of the molten metal to ensure accurate processing and record-keeping.
+
+##### Heat Lifting by Crane for Pouring in AOD
+
+Finally, the crane lifts the heat from the weighing bridge trolley and transports it to the Argon Oxygen Decarburization (AOD) unit for pouring. This step involves the careful handling of the molten metal to ensure precise pouring into the AOD for further processing.
+
+![alt text](Frame_1.gif)
+
+# Object Detection from Video
+
+## Introduction
+
+This report describes the implementation of an object detection system using a pre-trained TensorFlow Lite model. The system processes video input to identify and label objects in real-time. The script supports both standard TensorFlow Lite models and models optimized for the Coral Edge TPU.
+
+## Script Overview
+
+### Arguments
+
+The script accepts several command-line arguments:
+
+- `--modeldir`: Directory containing the .tflite model file (required).
+- `--graph`: Name of the .tflite file (default: detect.tflite).
+- `--labels`: Name of the label map file (default: labelmap.txt).
+- `--threshold`: Minimum confidence threshold for displaying detected objects.
+- `--video`: Name of the video file (default: test.mp4).
+- `--edgetpu`: Use Coral Edge TPU Accelerator for faster detection (optional).
+
+### TensorFlow Lite Model Loading
+
+The script can import TensorFlow Lite models using either the `tflite_runtime` package or the full TensorFlow package, depending on what is available. If the Edge TPU is specified, the script uses the appropriate delegate to load the model optimized for the TPU.
+
+### Label Map
+
+The label map file, which maps class indices to human-readable labels, is loaded and processed.
+
+```python
+#CODE
+
+labels = [{'name':'Object', 'id':1}]
+
+with open(files['LABELMAP'], 'w') as f:
+    for label in labels:
+        f.write('item { \n')
+        f.write('\tname:\'{}\'\n'.format(label['name']))
+        f.write('\tid:{}\n'.format(label['id']))
+        f.write('}\n')
+```
+
+### Video Processing
+
+The script opens the specified video file and processes it frame by frame. Each frame is resized to match the input shape expected by the model.
+
+### Object Detection
+
+For each frame:
+
+1. The image is converted to RGB and resized.
+2. The pixel values are normalized if the model is non-quantized.
+3. The frame is passed to the model for inference.
+4. The model outputs bounding boxes, class indices, and confidence scores.
+5. Bounding boxes and labels are drawn on the frame for detections above the confidence threshold.
+
+### Display
+
+The processed frames with detected objects are displayed in a window. The detection process continues until the end of the video or until the user presses 'q' to quit.
+
+```python
+#CODE
+import os
+import argparse
+import cv2
+import numpy as np
+import sys
+import importlib.util
+
+# Define and parse input arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--modeldir', help='Folder the .tflite file is located in', required=True)
+parser.add_argument('--graph', help='Name of the .tflite file, if different than detect.tflite', default='detect.tflite')
+parser.add_argument('--labels', help='Name of the labelmap file, if different than labelmap.txt', default='labelmap.txt')
+parser.add_argument('--threshold', help='Minimum confidence threshold for displaying detected objects', default=0.7)
+parser.add_argument('--video', help='Name of the video file', default='test.mp4')
+parser.add_argument('--edgetpu', help='Use Coral Edge TPU Accelerator to speed up detection', action='store_true')
+
+args = parser.parse_args()
+
+MODEL_NAME = args.modeldir
+GRAPH_NAME = args.graph
+LABELMAP_NAME = args.labels
+VIDEO_NAME = args.video
+min_conf_threshold = float(args.threshold)
+use_TPU = args.edgetpu
+
+# Import TensorFlow libraries
+pkg = importlib.util.find_spec('tflite_runtime')
+if pkg:
+    from tflite_runtime.interpreter import Interpreter
+    if use_TPU:
+        from tflite_runtime.interpreter import load_delegate
+else:
+    from tensorflow.lite.python.interpreter import Interpreter
+    if use_TPU:
+        from tensorflow.lite.python.interpreter import load_delegate
+
+if use_TPU:
+    if (GRAPH_NAME == 'detect.tflite'):
+        GRAPH_NAME = 'edgetpu.tflite'
+
+CWD_PATH = os.getcwd()
+VIDEO_PATH = os.path.join(CWD_PATH, VIDEO_NAME)
+PATH_TO_CKPT = os.path.join(CWD_PATH, MODEL_NAME, GRAPH_NAME)
+PATH_TO_LABELS = os.path.join(CWD_PATH, MODEL_NAME, LABELMAP_NAME)
+
+with open(PATH_TO_LABELS, 'r') as f:
+    labels = [line.strip() for line in f.readlines()]
+if labels[0] == '???':
+    del (labels[0])
+
+if use_TPU:
+    interpreter = Interpreter(model_path=PATH_TO_CKPT,
+                              experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+else:
+    interpreter = Interpreter(model_path=PATH_TO_CKPT)
+interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+height = input_details[0]['shape'][1]
+width = input_details[0]['shape'][2]
+floating_model = (input_details[0]['dtype'] == np.float32)
+
+input_mean = 127.5
+input_std = 127.5
+
+outname = output_details[0]['name']
+if ('StatefulPartitionedCall' in outname):
+    boxes_idx, classes_idx, scores_idx = 1, 3, 0
+else:
+    boxes_idx, classes_idx, scores_idx = 0, 1, 2
+
+video = cv2.VideoCapture(VIDEO_PATH)
+imW = video.get(cv2.CAP_PROP_FRAME_WIDTH)
+imH = video.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+while (video.isOpened()):
+    ret, frame = video.read()
+    if not ret:
+        print('Reached the end of the video!')
+        break
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame_resized = cv2.resize(frame_rgb, (width, height))
+    input_data = np.expand_dims(frame_resized, axis=0)
+
+    if floating_model:
+        input_data = (np.float32(input_data) - input_mean) / input_std
+
+    interpreter.set_tensor(input_details[0]['index'], input_data)
+    interpreter.invoke()
+
+    boxes = interpreter.get_tensor(output_details[boxes_idx]['index'])[0]
+    classes = interpreter.get_tensor(output_details[classes_idx]['index'])[0]
+    scores = interpreter.get_tensor(output_details[scores_idx]['index'])[0]
+
+    for i in range(len(scores)):
+        if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0)):
+            ymin = int(max(1, (boxes[i][0] * imH)))
+            xmin = int(max(1, (boxes[i][1] * imW)))
+            ymax = int(min(imH, (boxes[i][2] * imH)))
+            xmax = int(min(imW, (boxes[i][3] * imW)))
+
+            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (10, 255, 0), 4)
+
+            object_name = labels[int(classes[i])]
+            label = '%s: %d%%' % (object_name, int(scores[i]*100))
+            labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            label_ymin = max(ymin, labelSize[1] + 10)
+            cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
+            cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+
+    cv2.imshow('Object detector', frame)
+
+    if cv2.waitKey(1) == ord('q'):
+        break
+
+video.release()
+cv2.destroyAllWindows()
+
+```
+
+### Result
+
+![alt text](image-7.png)
+![alt text](image-5.png)
+![alt text](image-12.png)
+
+### WebSockets with Socket.IO in a Python Flask Environment and React Frontend
+
+![alt text](image-8.png)
+![alt text](image-9.png)
+
+#### 1. Setting Up the Environment
+
+##### Prerequisites
+
+- Python 3.x
+- Flask
+- Flask-SocketIO
+- Node.js and npm/yarn for React
+
+##### Installation
+
+1. **Install Flask and Flask-SocketIO**:
+
+   ```bash
+   pip install flask flask-socketio
+   ```
+
+2. **Install Socket.IO Client**:
+   ```bash
+   npm install socket.io-client
+   ```
+
+#### 2. Backend: Flask with Flask-SocketIO
+
+Create a Flask application with Socket.IO support.
+
+```python
+# Import necessary libraries and modules
+import pygame  # For audio alerts
+from flask_socketio import SocketIO, emit  # For WebSocket communication
+from flask import Flask  # For creating the Flask web server
+import importlib.util  # For dynamic imports
+import sys  # For system-specific parameters and functions
+import numpy as np  # For numerical operations
+import cv2  # For computer vision tasks
+import time  # For time-related functions
+import argparse  # For parsing command-line arguments
+import os  # For interacting with the operating system
+import eventlet  # For asynchronous networking
+eventlet.monkey_patch()  # Apply eventlet monkey patch for cooperative multitasking
+
+# Initialize Pygame mixer for audio alerts
+pygame.mixer.init()
+
+# Initialize Flask app and SocketIO for web communication
+app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Define route for checking server status
+@app.route('/')
+def index():
+    return "Object Detection Server Running"
+
+# Flag to track if the background task has started
+background_task_started = False
+
+# Define and parse input arguments for the script
+parser = argparse.ArgumentParser()
+parser.add_argument('--modeldir', help='Folder the .tflite file is located in', required=True)
+parser.add_argument('--graph', help='Name of the .tflite file, if different than detect.tflite', default='detect.tflite')
+parser.add_argument('--labels', help='Name of the labelmap file, if different than labelmap.txt', default='labelmap.txt')
+parser.add_argument('--threshold', help='Minimum confidence threshold for displaying detected objects', default=0.8)
+parser.add_argument('--video', help='Name of the video file', default='test.mp4')
+parser.add_argument('--edgetpu', help='Use Coral Edge TPU Accelerator to speed up detection', action='store_true')
+args = parser.parse_args()
+
+# Assign parsed arguments to variables
+MODEL_NAME = args.modeldir
+GRAPH_NAME = args.graph
+LABELMAP_NAME = args.labels
+VIDEO_NAME = args.video
+min_conf_threshold = float(args.threshold)
+use_TPU = args.edgetpu
+
+# Import TensorFlow Lite libraries based on availability
+pkg = importlib.util.find_spec('tflite_runtime')
+if pkg:
+    from tflite_runtime.interpreter import Interpreter
+    if use_TPU:
+        from tflite_runtime.interpreter import load_delegate
+else:
+    from tensorflow.lite.python.interpreter import Interpreter
+    if use_TPU:
+        from tensorflow.lite.python.interpreter import load_delegate
+
+# Adjust model name if using Edge TPU
+if use_TPU:
+    if GRAPH_NAME == 'detect.tflite':
+        GRAPH_NAME = 'edgetpu.tflite'
+
+# Set paths for model and label files
+CWD_PATH = os.getcwd()
+VIDEO_PATH = os.path.join(CWD_PATH, VIDEO_NAME)
+PATH_TO_CKPT = os.path.join(CWD_PATH, MODEL_NAME, GRAPH_NAME)
+PATH_TO_LABELS = os.path.join(CWD_PATH, MODEL_NAME, LABELMAP_NAME)
+
+# Read labels from label map file
+with open(PATH_TO_LABELS, 'r') as f:
+    labels = [line.strip() for line in f.readlines()]
+
+# Remove the first label if it is '???'
+if labels[0] == '???':
+    del labels[0]
+
+# Initialize TensorFlow Lite interpreter
+if use_TPU:
+    interpreter = Interpreter(model_path=PATH_TO_CKPT, experimental_delegates=[load_delegate('libedgetpu.so.1.0')])
+else:
+    interpreter = Interpreter(model_path=PATH_TO_CKPT)
+
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+height = input_details[0]['shape'][1]
+width = input_details[0]['shape'][2]
+
+# Check if the input tensor is a floating model
+floating_model = (input_details[0]['dtype'] == np.float32)
+
+# Set normalization parameters for floating model input
+input_mean = 127.5
+input_std = 127.5
+
+# Determine output tensor indices based on model type
+outname = output_details[0]['name']
+if 'StatefulPartitionedCall' in outname:  # TF2 model
+    boxes_idx, classes_idx, scores_idx = 1, 3, 0
+else:  # TF1 model
+    boxes_idx, classes_idx, scores_idx = 0, 1, 2
+
+# Open the video file for object detection
+video = cv2.VideoCapture(VIDEO_PATH)
+if not video.isOpened():
+    print(f"Error: Could not open video {VIDEO_PATH}")
+else:
+    print(f"Successfully opened video {VIDEO_PATH}")
+imW = video.get(cv2.CAP_PROP_FRAME_WIDTH)
+imH = video.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+# Threshold for detecting object movement
+movement_threshold = 2
+
+# Function to check if an object is moving based on bounding boxes
+def is_moving(box1, box2, threshold):
+    x1, y1, x2, y2 = box1
+    x3, y3, x4, y4 = box2
+    center1 = ((x1 + x2) / 2, (y1 + y2) / 2)
+    center2 = ((x3 + x4) / 2, (y3 + y4) / 2)
+    distance = np.sqrt((center2[0] - center1[0]) ** 2 + (center2[1] - center1[1]) ** 2)
+    return distance > threshold
+
+# Function to calculate object velocity and direction
+def calculate_velocity_and_direction(prev_center, curr_center, time_diff):
+    # Calculate velocity (pixels per second)
+    velocity = np.sqrt((curr_center[0] - prev_center[0]) ** 2 + (curr_center[1] - prev_center[1]) ** 2) / time_diff
+
+    # Calculate direction (angle in degrees)
+    angle = np.degrees(np.arctan2(curr_center[1] - prev_center[1], curr_center[0] - prev_center[0]))
+
+    # Determine direction as "left", "right", "up", or "down"
+    if -45 <= angle <= 45:
+        direction = "right"
+    elif 45 < angle <= 135:
+        direction = "up"
+    elif -135 <= angle < -45:
+        direction = "down"
+    else:
+        direction = "left"
+
+    return velocity, direction
+
+# Initialize variables for tracking previous frame objects and status
+previous_frame_objects = []
+status = ""
+count = 0
+
+# Variables for frame counting and time tracking
+frame_count = 0
+frame_interval = 20  # Assuming 30 FPS, this will be 2 seconds
+previous_time = time.time()
+
+# Function to generate object detection data and send to clients via SocketIO
+def generate_object_data():
+    global previous_frame_objects, status, count, frame_count, previous_time
+    while True:
+        ret, frame = video.read()
+        if not ret:
+            print('Reached the end of the video, looping back to start.')
+            video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            continue
+
+        # Preprocess the frame for object detection
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_resized = cv2.resize(frame_rgb, (width, height))
+        input_data = np.expand_dims(frame_resized, axis=0)
+
+        if floating_model:
+            input_data = (np.float32(input_data) - input_mean) / input_std
+
+        # Set input tensor and invoke the interpreter
+        interpreter.set_tensor(input_details[0]['index'], input_data)
+        interpreter.invoke()
+
+        # Get the detection results
+        boxes = interpreter.get_tensor(output_details[boxes_idx]['index'])[0]
+        classes = interpreter.get_tensor(output_details[classes_idx]['index'])[0]
+        scores = interpreter.get_tensor(output_details[scores_idx]['index'])[0]
+
+        current_frame_objects = []
+        current_time = time.time()
+        time_diff = current_time - previous_time
+        previous_time = current_time
+
+        # Process each detected object
+        for i in range(len(scores)):
+            if scores[i] > min_conf_threshold and scores[i] <= 1.0:
+                ymin = int(max(1, (boxes[i][0] * imH)))
+                xmin = int(max(1, (boxes[i][1] * imW)))
+                ymax = int(min(imH, (boxes[i][2] * imH)))
+                xmax = int(min(imW, (boxes[i][3] * imW)))
+                bbox = [xmin, ymin, xmax, ymax]
+                current_frame_objects.append((bbox, classes[i]))
+
+                object_name = labels[int(classes[i])]
+                curr_center = ((xmin + xmax) // 2, (ymin + ymax) // 2)
+
+                if i < len(previous_frame_objects):
+                    prev_bbox = previous_frame_objects[i][0]
+                    prev_center = ((prev_bbox[0] + prev_bbox[2]) // 2, (prev_bbox[1] + prev_bbox[3]) // 2)
+
+                    if is_moving(prev_bbox, bbox, movement_threshold):
+                        status = "Moving"
+                        count = 0
+                        pygame.mixer.music.stop()
+                    else:
+                        status = "Stopped"
+                        count += 1
+                        if count >= 8:
+                            pygame.mixer.music.load("alarm.mp3")
+                            pygame.mixer.music.play()
+
+                    velocity, direction = calculate_velocity_and_direction(prev_center, curr_center, time_diff)
+                else:
+                    velocity, direction = 0.0, "N/A"
+
+                # Emit object data to clients at specified frame intervals
+                if frame_count % frame_interval == 0:
+                    data = {
+                        'id': int(i),
+                        'type': object_name,
+                        'position': {'x': curr_center[0], 'y': curr_center[1]},
+                        'velocity': velocity,
+                        'direction': direction,
+                        'isMoving': status,
+                        'confidence': float(scores[i]),
+                        'timestamp': int(time.time() * 1000)
+                    }
+                    print("Sending data: ", data)
+                    socketio.emit('object_data', data)
+                    eventlet.sleep(0)
+
+                # Draw detection results on the frame
+                label = f'{object_name}: {int(scores[i]*100)}% ({status})'
+                labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+                label_ymin = max(ymin, labelSize[1] + 10)
+                cv2.rectangle(frame, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
+                cv2.putText(frame, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+
+        previous_frame_objects = current_frame_objects
+        cv2.imshow('Object detector', frame)
+
+        frame_count += 1
+
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    # Release video and destroy all OpenCV windows
+    video.release()
+    cv2.destroyAllWindows()
+
+# Handle new client connections
+@socketio.on('connect')
+def handle_connect():
+    global background_task_started
+    print('Client connected')
+    if not background_task_started:
+        socketio.start_background_task(generate_object_data)
+        background_task_started = True
+
+# Handle client disconnections
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+# Start the Flask web server
+if __name__ == '__main__':
+    print("Starting server...")
+    socketio.run(app, host='0.0.0.0', port=5001)
+
+```
+
+#### 3. Frontend: React with Socket.IO Client
+
+Create a React application if you haven't already.
+
+1. **Initialize React App**:
+
+   ```bash
+   npx create-react-app my-app
+   cd my-app
+   npm install socket.io-client
+   ```
+
+2. **Package JSON file**:
+
+```json
+{
+  "name": "object-detection-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-scripts": "5.0.1",
+    "recharts": "^2.12.7",
+    "socket.io-client": "^4.7.5",
+    "styled-components": "^6.1.11",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": ["react-app", "react-app/jest"]
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
+```
+
+3. **Project Structure(Frontend)**:
+
+```bash
+.
+├── .idea
+├── node_modules
+├── public
+│   ├── favicon.ico
+│   ├── index.html
+│   ├── logo192.png
+│   ├── logo512.png
+│   ├── manifest.json
+│   └── robots.txt
+├── src
+│   ├── assets
+│   │   └── backgroud.jpg
+│   ├── components
+│   │   ├── Card.js
+│   │   ├── RadialChart.js
+│   │   ├── Status.js
+│   │   └── Value.js
+│   ├── styling
+│   │   └── Heading.js
+│   ├── App.css
+│   ├── App.js
+│   ├── App.test.js
+│   ├── data.js
+│   ├── index.css
+│   ├── index.js
+│   ├── logo.svg
+│   ├── reportWebVitals.js
+│   └── setupTests.js
+├── .gitignore
+├── package-lock.json
+├── package.json
+└── README.md
+
+```
+
+4. **Implement Socket.IO in React**:
+
+Create a component that establishes a WebSocket connection using Socket.IO.
+
+```javascript
+import "./App.css";
+import Card from "./components/Card";
+import styled from "styled-components";
+import React, { useState, useEffect } from "react";
+import socketIOClient from "socket.io-client";
+import Status from "./components/Status";
+import Value from "./components/Value";
+import RadialChart from "./components/RadialChart";
+function App() {
+  const [objectData, setObjectData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [latest, setLatest] = useState({});
+  const [status, setStatus] = useState("Stopped");
+  const ENDPOINT = "http://localhost:5001";
+
+  useEffect(() => {
+    const socket = socketIOClient(ENDPOINT);
+
+    socket.on("connect", () => {
+      console.log(`Connected with id: ${socket.id}`);
+    });
+
+    socket.on("object_data", (data) => {
+      setStatus(data.isMoving);
+      setLatest(data);
+      setObjectData((prevData) => {
+        if (!Array.isArray(prevData)) {
+          prevData = [];
+        }
+
+        // Add new data to the array
+        const newData = [...prevData, data];
+
+        // Limit the array to the last 10 items
+        if (newData.length > 10) {
+          newData.shift(); // Remove the oldest item
+        }
+
+        // Only update state if there are changes
+        return newData;
+      });
+
+      setLoading(false);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+  const positionProps = {
+    data: objectData,
+    heading: "Real Time Coordinates",
+    xKey: "timestamp",
+    yKeys: [
+      { key: "position.x", color: "#8884d8", name: "Position X" },
+      { key: "position.y", color: "#82ca9d", name: "Position Y" },
+    ],
+  };
+  const velocityProps = {
+    data: objectData,
+    heading: "Real Time Velocity",
+    xKey: "timestamp",
+    yKeys: [{ key: "velocity", color: "#8884d8", name: "Velocity of Object" }],
+  };
+  const data = [
+    {
+      name: "velocity",
+      value: latest.velocity * 100,
+      fill: "#2ecc71",
+    },
+    {
+      name: "confidence",
+      value: latest.confidence * 100,
+      fill: "#4deeea",
+    },
+    {
+      name: "Position X-coordinate",
+      value: latest.position != null ? latest.position.x : 0,
+      fill: "#82ca9d",
+    },
+    {
+      name: "Position Y-coordinate",
+      value: latest.position != null ? latest.position.y : 0,
+      fill: "#8884d8",
+    },
+  ];
+
+  return (
+    <Wrapper>
+      {loading ? (
+        <div className="loader-container">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <div>Loading</div>
+          </div>
+        </div>
+      ) : (
+        <div className="layout">
+          <div className="header">
+            <div className="nav">
+              <div className="nav-inner">
+                Real Time Laddle Detection Monitoring
+              </div>
+            </div>
+            <Status status={status} heading="Laddle Status" />
+            <div className="coord">
+              <Card {...positionProps} />
+            </div>
+
+            <div className="radial">
+              <RadialChart data={data} />
+            </div>
+            <div className="val">
+              <Value data={latest} />
+            </div>
+
+            <div className="velo">
+              <Card {...velocityProps} />
+            </div>
+          </div>
+        </div>
+      )}
+    </Wrapper>
+  );
+}
+
+const Wrapper = styled.div`
+  .loader-container {
+    display: flex;
+    justify-content: space-evenly;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    height: 100vh;
+  }
+  .loading-spinner {
+    width: 20%;
+    height: 20%;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: space-evenly;
+  }
+  .spinner {
+    border: 6px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #7983ff;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    background-color: white;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  .nav-inner {
+    text-align: center;
+    color: #4deeea;
+  }
+  .nav {
+    background-color: #0e254a;
+    display: flex;
+    justify-content: space-evenly;
+    font-size: 2.8rem;
+  }
+  .header {
+    display: grid;
+    grid-gap: 0.8rem;
+    grid-template-columns: 0.35fr 0.8fr 0.6fr;
+  }
+  .layout {
+    padding: 1rem;
+  }
+  .nav {
+    grid-column: 1/-1;
+  }
+  .radial {
+    grid-column: 1/3;
+  }
+  .velo {
+    grid-column: 1/-1;
+  }
+  .coord {
+    grid-column: 2/-1;
+  }
+  .vals {
+    grid-row: 3/4;
+    grid-column: 1/2;
+  }
+`;
+export default App;
+```
+
+#### Explanation of Recharts Library
+
+Recharts is a composable charting library built on React components. It makes it easy to create simple, elegant charts with a flexible API. It leverages D3 under the hood, but exposes a simpler API that's more aligned with React.
+
+```javascript
+import React from "react";
+// Importing necessary components from the recharts library
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+// Importing a custom Heading component
+import Heading from "../styling/Heading.js";
+// Importing styled-components for styled Wrapper
+import styled from "styled-components";
+
+// Functional component Card that takes in props: data, heading, xKey, yKeys
+const Card = ({ data, heading, xKey, yKeys }) => {
+  return (
+    <Wrapper>
+      {/* Rendering the heading using the imported Heading component */}
+      <Heading heading={heading} />
+      {/* Making the chart responsive */}
+      <ResponsiveContainer width="100%" height={400}>
+        <AreaChart
+          data={data} // Setting the data for the chart
+          margin={{ top: 5, right: 30, left: 20, bottom: 5 }} // Setting margins for the chart
+        >
+          <defs>
+            {/* Defining gradients for the areas in the chart */}
+            {yKeys.map((yKey, index) => (
+              <linearGradient
+                key={`gradient-${index}`}
+                id={`color${index}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="5%" stopColor={yKey.color} stopOpacity={0.8} />
+                <stop offset="95%" stopColor={yKey.color} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          {/* Adding a Cartesian grid to the chart */}
+          <CartesianGrid strokeDasharray="3 3" stroke="#888" />
+          {/* Defining the X-axis */}
+          <XAxis
+            dataKey={xKey} // Key to get the x-axis data from the dataset
+            tick={{ fill: "#4deeea", fontSize: "12px" }} // Neon color for x-axis labels
+            tickFormatter={(tick) => new Date(tick).toLocaleTimeString()} // Formatting ticks as time
+          />
+          {/* Defining the Y-axis */}
+          <YAxis tick={{ fill: "#4deeea", fontSize: "12px" }} />{" "}
+          {/* Neon color for y-axis labels */}
+          {/* Adding a tooltip to the chart */}
+          <Tooltip
+            labelStyle={{ color: "#fff" }} // Neon color for tooltip labels
+            labelFormatter={(label) => new Date(label).toLocaleString()} // Formatting tooltip labels as date and time
+          />
+          {/* Adding a legend to the chart */}
+          <Legend wrapperStyle={{ color: "#fff" }} />{" "}
+          {/* Neon color for legend labels */}
+          {/* Defining the areas in the chart */}
+          {yKeys.map((yKey, index) => (
+            <Area
+              key={index} // Unique key for each area
+              type="monotone" // Type of area chart
+              dataKey={yKey.key} // Key to get the y-axis data from the dataset
+              stroke={yKey.color} // Line color
+              fill={`url(#color${index})`} // Gradient fill based on the defined linear gradient
+              name={yKey.name} // Name to show in the legend
+              dot={{ fill: "#fff" }} // Neon color for dots on the line
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    </Wrapper>
+  );
+};
+
+// Styled-component for the Wrapper
+const Wrapper = styled.div`
+  background-color: #0e254a;
+`;
+
+// Exporting the Card component as default export
+export default Card;
+```
+
+#### 5. Running the Application
+
+1. **Run Flask Server**:
+
+   ```bash
+   python app.py
+   ```
+
+2. **Run React Development Server**:
+   ```bash
+   npm start
+   ```
+
+React application should now be able to send messages to the Flask server and receive responses in real-time using Socket.IO. This setup creates a real-time communication channel between the frontend and backend, suitable for various applications like chat systems, live notifications, real-time updates, etc.
+
+#### Sample output from the server
+
+![alt text](image-10.png)
+
+#### Real time monitorring at the frontend
+
+![alt text](image-11.png)
